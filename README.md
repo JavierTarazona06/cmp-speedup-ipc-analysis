@@ -17,3 +17,10 @@ This repository contains the TD/TP5 (ES201 — Microprocessor Architecture) assi
 - Environment with **gem5** configured (course setup).
 - `test_omp` binary.
 - Linux + bash (recommended).
+
+## Travail en groupe
+
+Personne A: Q1–Q3 Maeva
+Personne B: Q4–Q8: Carlos
+Personne C: Q9–Q12: Javier
+Personne D: Q13–Q14: Jair
