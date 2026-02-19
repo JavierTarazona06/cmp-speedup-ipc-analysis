@@ -14,6 +14,8 @@ Options:
   --widths "<list>"      O3 widths list, space/comma separated (default: "2 4 8")
   --threads "<list>"     Thread list, space/comma separated (default: powers of 2 up to min(SIZE, 32))
   --results-root <path>  Output root directory (default: results/A15)
+  --env-file <path>      Environment file passed to se_a15.py (--env)
+  --omp-active-wait      Append OMP_WAIT_POLICY=ACTIVE and GOMP_SPINCOUNT=1000000000
   --no-caches            Disable --caches --l2cache
   -h, --help             Show help
 EOF
@@ -30,7 +32,11 @@ WIDTHS="2 4 8"
 THREADS=""
 RESULTS_ROOT="results/A15"
 USE_CACHES=1
-MAX_THREADS=32
+MAX_THREADS=65
+ENV_FILE=""
+OMP_ACTIVE_WAIT=0
+EFFECTIVE_ENV_FILE=""
+TEMP_ENV_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -57,6 +63,14 @@ while [[ $# -gt 0 ]]; do
     --results-root)
       RESULTS_ROOT="${2:-}"
       shift 2
+      ;;
+    --env-file)
+      ENV_FILE="${2:-}"
+      shift 2
+      ;;
+    --omp-active-wait)
+      OMP_ACTIVE_WAIT=1
+      shift
       ;;
     --no-caches)
       USE_CACHES=0
@@ -149,6 +163,33 @@ fi
 if [[ ! -f "${BINARY}" ]]; then
   echo "Error: binary not found: ${BINARY}" >&2
   exit 1
+fi
+
+if [[ -n "${ENV_FILE}" && ! -f "${ENV_FILE}" ]]; then
+  echo "Error: --env-file not found: ${ENV_FILE}" >&2
+  exit 1
+fi
+
+cleanup_temp_env() {
+  if [[ -n "${TEMP_ENV_FILE}" && -f "${TEMP_ENV_FILE}" ]]; then
+    rm -f "${TEMP_ENV_FILE}"
+  fi
+}
+trap cleanup_temp_env EXIT
+
+if (( OMP_ACTIVE_WAIT )); then
+  TEMP_ENV_FILE="$(mktemp)"
+  if [[ -n "${ENV_FILE}" ]]; then
+    cat "${ENV_FILE}" > "${TEMP_ENV_FILE}"
+    printf "\n" >> "${TEMP_ENV_FILE}"
+  fi
+  {
+    echo "OMP_WAIT_POLICY=ACTIVE"
+    echo "GOMP_SPINCOUNT=1000000000"
+  } >> "${TEMP_ENV_FILE}"
+  EFFECTIVE_ENV_FILE="${TEMP_ENV_FILE}"
+else
+  EFFECTIVE_ENV_FILE="${ENV_FILE}"
 fi
 
 export GEM5
@@ -252,10 +293,16 @@ echo "- SIZE: ${SIZE}"
 echo "- WIDTHS: ${WIDTHS_LIST[*]}"
 echo "- THREADS: ${THREADS_LIST[*]}"
 echo "- RESULTS_ROOT: ${RESULTS_ROOT}"
+if [[ -n "${EFFECTIVE_ENV_FILE}" ]]; then
+  echo "- ENV_FILE: ${EFFECTIVE_ENV_FILE}"
+fi
 if (( USE_CACHES )); then
   echo "- CACHES: enabled (--caches --l2cache)"
 else
   echo "- CACHES: disabled"
+fi
+if (( OMP_ACTIVE_WAIT )); then
+  echo "- OMP_ACTIVE_WAIT: enabled (OMP_WAIT_POLICY=ACTIVE, GOMP_SPINCOUNT=1000000000)"
 fi
 
 for width in "${WIDTHS_LIST[@]}"; do
@@ -280,6 +327,10 @@ for width in "${WIDTHS_LIST[@]}"; do
       "-c" "${BINARY}"
       "-o" "${threads} ${SIZE}"
     )
+
+    if [[ -n "${EFFECTIVE_ENV_FILE}" ]]; then
+      cmd+=("--env" "${EFFECTIVE_ENV_FILE}")
+    fi
 
     if (( USE_CACHES )); then
       cmd+=("--caches" "--l2cache")

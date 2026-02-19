@@ -27,8 +27,11 @@ test -f ./test_omp && echo "test_omp OK"
 scripts/run_q9_a15.sh \
   --gem5 "$GEM5" \
   --binary ./test_omp \
-  --size 64
+  --size 64 \
+  --omp-active-wait
 ```
+
+En este entorno gem5 se recomienda `--omp-active-wait` para reducir fallos ligados a `futex` (sincronización de hilos OpenMP/libgomp en gem5 SE). En la práctica, fuerza más espera activa y menos bloqueos/despertares por syscall.
 
 ## 5) Reanudar tras fallo (mismo comando)
 
@@ -36,7 +39,8 @@ scripts/run_q9_a15.sh \
 scripts/run_q9_a15.sh \
   --gem5 "$GEM5" \
   --binary ./test_omp \
-  --size 64
+  --size 64 \
+  --omp-active-wait
 ```
 
 El script usa `results/A15/state.tsv`: salta `DONE` y continúa desde la primera combinación pendiente o fallida.
@@ -74,7 +78,8 @@ scripts/run_q9_a15.sh \
   --binary ./test_omp \
   --size 64 \
   --threads "1 2" \
-  --widths "2"
+  --widths "2" \
+  --omp-active-wait
 ```
 
 ## 9) Ejemplo de reanudación con fallo intencional
@@ -85,7 +90,8 @@ scripts/run_q9_a15.sh \
 scripts/run_q9_a15.sh \
   --gem5 "$GEM5" \
   --binary ./test_omp_NO_EXISTE \
-  --size 64
+  --size 64 \
+  --omp-active-wait
 ```
 
 2. Corregir y reanudar:
@@ -94,5 +100,6 @@ scripts/run_q9_a15.sh \
 scripts/run_q9_a15.sh \
   --gem5 "$GEM5" \
   --binary ./test_omp \
-  --size 64
+  --size 64 \
+  --omp-active-wait
 ```

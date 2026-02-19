@@ -5,7 +5,7 @@ En la campaña Q9 (A15, `--cpu-type=detailed`, `o3-width=2`, `size=64`) se obser
 - Con `threads <= 32`, las ejecuciones terminan correctamente (`DONE`).
 - A partir de `threads = 40`, gem5 termina con `SIGSEGV` (`exit=139`), aun cuando el benchmark ya alcanzó a imprimir `Done`.
 
-Este patrón es consistente con un límite/bug del simulador (gem5-stable 2015) en esta configuración de muchos cores, más que con un error funcional del benchmark.
+Este patrón sugiere un bug del simulador (gem5-stable 2015), más que un error funcional del benchmark.
 
 # Restricción `threads = cpus/cores`
 
@@ -16,6 +16,18 @@ En el flujo actual de Q9, el script acopla directamente ambos parámetros:
 
 Por lo tanto, cada aumento de `threads` también aumenta el número de CPUs simuladas. La frontera observada no mide solo OpenMP; mide el escalado conjunto `threads + núcleos simulados`.
 
+# Hipótesis actualizada: ruta `futex` en gem5 SE
+
+Con pruebas adicionales, la hipótesis se refinó: no solo parece un problema de "muchos hilos", sino una inestabilidad en la ruta de sincronización de hilos (`futex`) en gem5 SE.
+
+- `futex` (*fast userspace mutex*) es el mecanismo Linux usado para bloquear/desbloquear hilos en sincronización (locks, condiciones, barreras) sin consumir CPU mientras esperan.
+- OpenMP/libgomp usa `futex` para dormir/despertar hilos cuando hay sincronización.
+- En gem5 SE (especialmente en versiones antiguas), esa ruta de syscalls puede ser incompleta o inestable en ciertos casos.
+- Al activar `--omp-active-wait` (equivale a `OMP_WAIT_POLICY=ACTIVE` + `GOMP_SPINCOUNT` alto), los hilos esperan más tiempo girando en userspace y entran menos a `futex`.
+- Menos uso de `futex` reduce la probabilidad de golpear ese bug del simulador.
+
+Resultado observado: una configuración que fallaba (`width=4`, `threads=8`) completó correctamente con active-wait. Esto mejora la hipótesis previa, aunque no demuestra por sí solo que todos los casos altos (por ejemplo `threads=64`) estén resueltos.
+
 # Hipótesis de memoria (menos probable)
 
 La memoria simulada por defecto es `512MB`, por lo que podría parecer un candidato inicial. Sin embargo, con base en los resultados observados, esta causa es mucho menos probable:
@@ -25,4 +37,4 @@ La memoria simulada por defecto es `512MB`, por lo que podría parecer un candid
 - Si `gem5` se cae después de ese `Done` (por ejemplo con `SIGSEGV`, `exit=139`), el estado final registrado es `FAILED`.
 - El fallo aparece en el cierre/finalización del proceso gem5 (segfault), no como error temprano de asignación del programa.
 
-Conclusión práctica para Q9: limitar la campaña a un máximo de `32` threads para mantener ejecuciones estables y comparables.
+Conclusión práctica para Q9: usar `--omp-active-wait` en la campaña y mantener, por ahora, el límite operativo de `32` threads hasta validar de forma explícita los casos más altos.
