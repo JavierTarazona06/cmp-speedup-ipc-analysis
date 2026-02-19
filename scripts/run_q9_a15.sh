@@ -12,7 +12,7 @@ Options:
   --binary <path>        Path to benchmark binary (default: ./test_omp)
   --size <int>           Matrix size (default: 64)
   --widths "<list>"      O3 widths list, space/comma separated (default: "2 4 8")
-  --threads "<list>"     Thread list, space/comma separated (default: powers of 2 up to SIZE)
+  --threads "<list>"     Thread list, space/comma separated (default: powers of 2 up to min(SIZE, 32))
   --results-root <path>  Output root directory (default: results/A15)
   --no-caches            Disable --caches --l2cache
   -h, --help             Show help
@@ -30,6 +30,7 @@ WIDTHS="2 4 8"
 THREADS=""
 RESULTS_ROOT="results/A15"
 USE_CACHES=1
+MAX_THREADS=32
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -111,7 +112,7 @@ if [[ -n "${THREADS}" ]]; then
   fi
 else
   t=1
-  while (( t <= SIZE )); do
+  while (( t <= SIZE && t <= MAX_THREADS )); do
     THREADS_LIST+=("${t}")
     t=$((t * 2))
   done
@@ -120,6 +121,10 @@ fi
 for threads in "${THREADS_LIST[@]}"; do
   if ! is_positive_int "${threads}"; then
     echo "Error: invalid thread value: ${threads}" >&2
+    exit 1
+  fi
+  if (( threads > MAX_THREADS )); then
+    echo "Error: thread value ${threads} exceeds max supported ${MAX_THREADS}." >&2
     exit 1
   fi
   if (( threads > SIZE )); then

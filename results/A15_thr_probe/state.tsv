@@ -1,5 +1,0 @@
-size	width	threads	status	outdir	log
-64	2	40	FAILED	results/A15_thr_probe/s64_w2_t40	results/A15_thr_probe/logs/s64_w2_t40.log
-64	2	48	PENDING	results/A15_thr_probe/s64_w2_t48	results/A15_thr_probe/logs/s64_w2_t48.log
-64	2	56	PENDING	results/A15_thr_probe/s64_w2_t56	results/A15_thr_probe/logs/s64_w2_t56.log
-64	2	64	PENDING	results/A15_thr_probe/s64_w2_t64	results/A15_thr_probe/logs/s64_w2_t64.log
