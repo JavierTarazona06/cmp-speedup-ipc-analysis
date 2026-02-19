@@ -26,7 +26,12 @@ Con pruebas adicionales, la hipótesis se refinó: no solo parece un problema de
 - Al activar `--omp-active-wait` (equivale a `OMP_WAIT_POLICY=ACTIVE` + `GOMP_SPINCOUNT` alto), los hilos esperan más tiempo girando en userspace y entran menos a `futex`.
 - Menos uso de `futex` reduce la probabilidad de golpear ese bug del simulador.
 
-Resultado observado: una configuración que fallaba (`width=4`, `threads=8`) completó correctamente con active-wait. Esto mejora la hipótesis previa, aunque no demuestra por sí solo que todos los casos altos (por ejemplo `threads=64`) estén resueltos.
+Resultado observado:
+
+- Una configuración que fallaba (`width=4`, `threads=8`) completó correctamente con active-wait.
+- Sin embargo, `size=64`, `width=2`, `threads=64` volvió a fallar incluso con active-wait (`SIGSEGV`, `exit=139`), después de `Done`, con numerosas advertencias `allocating bonus target for snoop`.
+
+Conclusión refinada: la ruta `futex` explica parte de los fallos, pero no todos. En casos de muy alta concurrencia todavía aparece una inestabilidad adicional del simulador.
 
 # Hipótesis de memoria (menos probable)
 
@@ -37,4 +42,4 @@ La memoria simulada por defecto es `512MB`, por lo que podría parecer un candid
 - Si `gem5` se cae después de ese `Done` (por ejemplo con `SIGSEGV`, `exit=139`), el estado final registrado es `FAILED`.
 - El fallo aparece en el cierre/finalización del proceso gem5 (segfault), no como error temprano de asignación del programa.
 
-Conclusión práctica para Q9: usar `--omp-active-wait` en la campaña y mantener, por ahora, el límite operativo de `32` threads hasta validar de forma explícita los casos más altos.
+Conclusión práctica para Q9: usar `--omp-active-wait` en la campaña como mitigación y mantener, por ahora, el límite operativo de `32` threads para resultados estables/comparables.
