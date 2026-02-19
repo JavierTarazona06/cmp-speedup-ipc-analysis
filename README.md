@@ -21,8 +21,11 @@ Ce dépôt contient le sujet de TD/TP5 (ES201 — Architecture des microprocesse
 ## Travail en groupe
 
 Personne A: Q1–Q3 Maeva
+
 Personne B: Q4–Q8: Carlos
+
 Personne C: Q9–Q12: Javier
+
 Personne D: Q13–Q14: Jair
 
 Q.A En question auxiliaire, recherchez les caractéristiques du microprocesseur 1) de votre ordinateur personnel et 2) de votre mobile, et reportez-les dans votre rapport.
