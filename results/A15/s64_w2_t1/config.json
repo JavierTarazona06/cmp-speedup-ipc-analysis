@@ -193,7 +193,10 @@
                         "system": "system", 
                         "gid": 100, 
                         "eventq_index": 0, 
-                        "env": [], 
+                        "env": [
+                            "OMP_WAIT_POLICY=ACTIVE", 
+                            "GOMP_SPINCOUNT=1000000000"
+                        ], 
                         "input": "cin", 
                         "ppid": 99, 
                         "type": "LiveProcess", 
