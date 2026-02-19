@@ -1,0 +1,2 @@
+size	width	threads	status	outdir	log
+64	4	8	FAILED	results/A15_w4_t8_nocache/s64_w4_t8	results/A15_w4_t8_nocache/logs/s64_w4_t8.log
