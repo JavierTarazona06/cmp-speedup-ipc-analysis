@@ -1,4 +1,5 @@
 \section{Architecture multicoeurs avec des processeurs superscalaires out-of-order (Cortex A15)}
+\raggedbottom
 
 \subsection{Stratégie adoptée pour traiter la Q9}
 
@@ -79,8 +80,7 @@ Il est important de préciser que ce \texttt{Done} est imprimé par \texttt{test
 La mitigation \texttt{--omp-active-wait} (réduction de l'usage de la voie \texttt{futex}/mutex) a été déterminante pour stabiliser les cas en largeur 4, notamment à partir de \texttt{threads=16} et au-delà ; sans cette mitigation, plusieurs combinaisons échouaient.
 
 \paragraph{Résultats numériques (extraits de \texttt{results/images/q9\_cycles.csv})}
-\begin{table}[H]
-\centering
+\begin{center}
 \scriptsize
 \begin{tabular}{c c c}
 \hline
@@ -103,14 +103,13 @@ La mitigation \texttt{--omp-active-wait} (réduction de l'usage de la voie \text
 8 & 32 & 299612  \\
 \hline
 \end{tabular}
-\caption{Cycles d'exécution obtenus pour Q9 (size=64).}
+\captionof{table}{Cycles d'exécution obtenus pour Q9 (size=64).}
 \label{tab:q9-cycles}
-\end{table}
+\end{center}
 
 \paragraph{Visualisation 3D}
-\begin{figure}[H]
-\centering
-\includegraphics[width=\linewidth]{../../results/images/q9_cycles_3d.png}
-\caption{Graphe 3D des cycles (X=threads, Y=voies/o3-width, Z=cycles).}
+\begin{center}
+\includegraphics[width=0.98\linewidth]{../../results/images/q9_cycles_3d.png}
+\captionof{figure}{Graphe 3D des cycles (X=threads, Y=voies/o3-width, Z=cycles).}
 \label{fig:q9-cycles-3d}
-\end{figure}
+\end{center}
