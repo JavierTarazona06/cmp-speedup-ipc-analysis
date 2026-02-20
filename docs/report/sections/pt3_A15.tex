@@ -1,0 +1,69 @@
+\section{Architecture multicoeurs avec des processeurs superscalaires out-of-order (Cortex A15)}
+
+\subsection{Stratégie adoptée pour traiter la Q9}
+
+Pour répondre à la Q9 (faire varier le nombre de threads et la largeur superscalaire, puis produire un graphe 3D des cycles), nous avons mis en place une chaîne reproductible en trois scripts :
+
+\begin{itemize}
+  \item un script d'orchestration des simulations,
+  \item un script gem5 SE adapté au modèle A15/o3,
+  \item un script de post-traitement pour extraire les cycles et générer la visualisation.
+\end{itemize}
+
+Cette organisation permet de lancer une campagne complète, reprendre après erreur, tracer précisément chaque exécution, et générer automatiquement le CSV et la figure 3D demandés.
+
+\subsection{Script \texttt{run\_q9\_a15.sh}: orchestration de la campagne}
+
+\textbf{Ce qu'il fait :}
+\begin{itemize}
+  \item lance toutes les combinaisons \texttt{(size, width, threads)} pour Q9 ;
+  \item crée un répertoire de sortie par combinaison ;
+  \item enregistre l'état d'avancement dans \texttt{state.tsv} (\texttt{PENDING}, \texttt{DONE}, \texttt{FAILED}) ;
+  \item permet la reprise automatique après interruption/échec ;
+  \item journalise chaque run dans un fichier de log dédié.
+\end{itemize}
+
+\textbf{Comment il le fait :}
+\begin{itemize}
+  \item construit la commande gem5 avec \texttt{--cpu-type=detailed}, \texttt{--o3-width}, \texttt{--num-cpus}, et les arguments du benchmark ;
+  \item exécute les runs séquentiellement et s'arrête au premier échec pour conserver un diagnostic clair ;
+  \item relit \texttt{state.tsv} au redémarrage pour ignorer les cas déjà \texttt{DONE} ;
+  \item supporte un mode de mitigation OpenMP (\texttt{--omp-active-wait}) via un fichier d'environnement passé à gem5.
+\end{itemize}
+
+\subsection{Script \texttt{se\_a15.py}: configuration gem5 pour A15/o3}
+
+\textbf{Ce qu'il fait :}
+\begin{itemize}
+  \item instancie un système gem5 en mode syscall emulation (SE) ;
+  \item configure des CPU de type \texttt{detailed} (modèle o3) ;
+  \item applique la largeur superscalaire via \texttt{o3-width} ;
+  \item exécute le binaire \texttt{test\_omp} avec les paramètres \texttt{threads} et \texttt{size}.
+\end{itemize}
+
+\textbf{Comment il le fait :}
+\begin{itemize}
+  \item s'appuie sur les options standard gem5 (\texttt{Options.addCommonOptions}, \texttt{Options.addSEOptions}) ;
+  \item crée \texttt{num-cpus} cœurs simulés et fixe \texttt{issueWidth} pour chaque cœur ;
+  \item configure hiérarchie mémoire/caches et lance la simulation avec \texttt{Simulation.run()} ;
+  \item prend en charge un fichier \texttt{--env} pour injecter des variables OpenMP/libgomp si nécessaire.
+\end{itemize}
+
+\subsection{Script \texttt{plot\_q9\_cycles.py}: extraction et visualisation}
+
+\textbf{Ce qu'il fait :}
+\begin{itemize}
+  \item lit \texttt{state.tsv} et sélectionne les runs \texttt{DONE} valides ;
+  \item extrait les cycles à partir des \texttt{stats.txt} de gem5 ;
+  \item génère un CSV consolidé ;
+  \item produit le graphe 3D demandé (threads, largeur, cycles).
+\end{itemize}
+
+\textbf{Comment il le fait :}
+\begin{itemize}
+  \item vérifie les colonnes attendues de \texttt{state.tsv} et la présence des fichiers \texttt{stats.txt} ;
+  \item récupère la métrique \texttt{system.cpu*.numCycles} et conserve la valeur maximale par run ;
+  \item écrit \texttt{q9\_cycles.csv} puis trace \texttt{q9\_cycles\_3d.png} avec Matplotlib ;
+  \item signale explicitement les combinaisons manquantes/invalides non incluses dans la figure.
+\end{itemize}
+
