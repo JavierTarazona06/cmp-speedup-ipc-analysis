@@ -5,7 +5,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/run_q9_a15.sh [options]
+  scripts/A15/run_q9_a15.sh [options]
 
 Options:
   --gem5 <path>          Path to gem5-stable (default: /home/g/gbusnot/ES201/tools/TP5/gem5-stable)
@@ -22,7 +22,7 @@ EOF
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${REPO_ROOT}"
 
 GEM5="/home/g/gbusnot/ES201/tools/TP5/gem5-stable"
