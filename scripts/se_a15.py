@@ -42,6 +42,8 @@
 #
 # "m5 test.py"
 
+# Search for "Custom change" to find modifications from the original ARM script.
+
 import optparse
 import sys
 import os
@@ -51,6 +53,8 @@ from m5.defines import buildEnv
 from m5.objects import *
 from m5.util import fatal
 
+# Custom change: resolve gem5 config modules from GEM5 instead of relying
+# on relative addToPath('../common') / addToPath('../ruby') calls.
 gem5_root = os.environ.get('GEM5')
 if not gem5_root:
     print >> sys.stderr, "Error: GEM5 environment variable is not set."
@@ -137,6 +141,7 @@ def get_processes(options):
 parser = optparse.OptionParser()
 Options.addCommonOptions(parser)
 Options.addSEOptions(parser)
+# Custom change: set a default issue width for detailed/O3 runs.
 parser.set_defaults(o3_width=2)
 
 if '--ruby' in sys.argv:
