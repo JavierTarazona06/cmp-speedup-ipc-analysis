@@ -67,3 +67,50 @@ Cette organisation permet de lancer une campagne complète, reprendre après err
   \item signale explicitement les combinaisons manquantes/invalides non incluses dans la figure.
 \end{itemize}
 
+\subsection{Expérimentation}
+
+L'expérimentation a été lancée avec le script \texttt{run\_q9\_a15.sh} en conservant les valeurs par défaut du script :
+\texttt{size=64}, \texttt{widths=\{2,4,8\}}, \texttt{threads} en puissances de 2, caches activés, et sorties dans \texttt{results/A15}.
+
+Nous visions initialement une exploration jusqu'à 64 threads. En pratique, les exécutions à forte concurrence ont présenté des \texttt{SIGSEGV} de gem5 (même après le message \texttt{Done} du benchmark), conformément au diagnostic détaillé dans \texttt{docs/report/sections/A15\_boundary.md}.
+
+Il est important de préciser que ce \texttt{Done} est imprimé par \texttt{test\_omp} et signifie uniquement que le calcul applicatif est terminé ; il ne garantit pas la fin correcte de toute l'exécution gem5, puisque l'état \texttt{DONE} n'est validé que si le processus gem5 se termine avec \texttt{exit=0}.
+
+La mitigation \texttt{--omp-active-wait} (réduction de l'usage de la voie \texttt{futex}/mutex) a été déterminante pour stabiliser les cas en largeur 4, notamment à partir de \texttt{threads=16} et au-delà ; sans cette mitigation, plusieurs combinaisons échouaient.
+
+\paragraph{Résultats numériques (extraits de \texttt{results/images/q9\_cycles.csv})}
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{tabular}{c c c}
+\hline
+\textbf{Width} & \textbf{Threads} & \textbf{Cycles} \\
+\hline
+2 & 2  & 1282419 \\
+2 & 4  & 768565  \\
+2 & 8  & 515053  \\
+2 & 16 & 391465  \\
+2 & 32 & 341535  \\
+4 & 2  & 801594  \\
+4 & 4  & 520290  \\
+4 & 8  & 381832  \\
+4 & 16 & 318392  \\
+4 & 32 & 302483  \\
+8 & 2  & 785008  \\
+8 & 4  & 510238  \\
+8 & 8  & 376396  \\
+8 & 16 & 315224  \\
+8 & 32 & 299612  \\
+\hline
+\end{tabular}
+\caption{Cycles d'exécution obtenus pour Q9 (size=64).}
+\label{tab:q9-cycles}
+\end{table}
+
+\paragraph{Visualisation 3D}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{../../results/images/q9_cycles_3d.png}
+\caption{Graphe 3D des cycles (X=threads, Y=voies/o3-width, Z=cycles).}
+\label{fig:q9-cycles-3d}
+\end{figure}
