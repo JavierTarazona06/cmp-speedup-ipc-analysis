@@ -1,0 +1,202 @@
+\section{Architecture multicoeurs avec des processeurs superscalaires out-of-order (Cortex A15)}
+\raggedbottom
+
+\subsection{Stratégie adoptée pour traiter la Q9}
+
+Pour répondre à la Q9 (faire varier le nombre de threads et la largeur superscalaire, puis produire un graphe 3D des cycles), nous avons mis en place une chaîne reproductible en quatre scripts :
+
+\begin{itemize}
+  \item un script d'orchestration des simulations,
+  \item un script gem5 SE adapté au modèle A15/o3,
+  \item un script de post-traitement pour extraire les cycles et générer la visualisation,
+  \item un script dédié à l'extraction/calcul de l'IPC.
+\end{itemize}
+
+Cette organisation permet de lancer une campagne complète, reprendre après erreur, tracer précisément chaque exécution, et générer automatiquement le CSV et la figure 3D demandés.
+
+\subsection{Script \texttt{run\_q9\_a15.sh}: orchestration de la campagne}
+
+\textbf{Ce qu'il fait :}
+\begin{itemize}
+  \item lance toutes les combinaisons \texttt{(size, width, threads)} pour Q9 ;
+  \item crée un répertoire de sortie par combinaison ;
+  \item enregistre l'état d'avancement dans \texttt{state.tsv} (\texttt{PENDING}, \texttt{DONE}, \texttt{FAILED}) ;
+  \item permet la reprise automatique après interruption/échec ;
+  \item journalise chaque run dans un fichier de log dédié.
+\end{itemize}
+
+\textbf{Comment il le fait :}
+\begin{itemize}
+  \item construit la commande gem5 avec \texttt{--cpu-type=detailed}, \texttt{--o3-width}, \texttt{--num-cpus}, et les arguments du benchmark ;
+  \item exécute les runs séquentiellement et s'arrête au premier échec pour conserver un diagnostic clair ;
+  \item relit \texttt{state.tsv} au redémarrage pour ignorer les cas déjà \texttt{DONE} ;
+  \item supporte un mode de mitigation OpenMP (\texttt{--omp-active-wait}) via un fichier d'environnement passé à gem5.
+\end{itemize}
+
+\subsection{Script \texttt{se\_a15.py}: configuration gem5 pour A15/o3}
+
+\textbf{Ce qu'il fait :}
+\begin{itemize}
+  \item instancie un système gem5 en mode syscall emulation (SE) ;
+  \item configure des CPU de type \texttt{detailed} (modèle o3) ;
+  \item applique la largeur superscalaire via \texttt{o3-width} ;
+  \item exécute le binaire \texttt{test\_omp} avec les paramètres \texttt{threads} et \texttt{size}.
+\end{itemize}
+
+\textbf{Comment il le fait :}
+\begin{itemize}
+  \item s'appuie sur les options standard gem5 (\texttt{Options.addCommonOptions}, \texttt{Options.addSEOptions}) ;
+  \item crée \texttt{num-cpus} cœurs simulés et fixe \texttt{issueWidth} pour chaque cœur ;
+  \item configure hiérarchie mémoire/caches et lance la simulation avec \texttt{Simulation.run()} ;
+  \item prend en charge un fichier \texttt{--env} pour injecter des variables OpenMP/libgomp si nécessaire.
+\end{itemize}
+
+\subsection{Script \texttt{plot\_q9\_cycles.py}: extraction et visualisation}
+
+\textbf{Ce qu'il fait :}
+\begin{itemize}
+  \item lit \texttt{state.tsv} et sélectionne les runs \texttt{DONE} valides ;
+  \item extrait les cycles à partir des \texttt{stats.txt} de gem5 ;
+  \item génère un CSV consolidé ;
+  \item produit le graphe 3D demandé (threads, largeur, cycles).
+\end{itemize}
+
+\textbf{Comment il le fait :}
+\begin{itemize}
+  \item vérifie les colonnes attendues de \texttt{state.tsv} et la présence des fichiers \texttt{stats.txt} ;
+  \item récupère la métrique \texttt{system.cpu*.numCycles} et conserve la valeur maximale par run ;
+  \item écrit \texttt{q9\_cycles.csv} puis trace \texttt{q9\_cycles\_3d.png} avec Matplotlib ;
+  \item signale explicitement les combinaisons manquantes/invalides non incluses dans la figure.
+\end{itemize}
+
+\subsection{Script \texttt{extract\_q9\_ipc.py}: extraction de l'IPC}
+
+\textbf{Ce qu'il fait :}
+\begin{itemize}
+  \item extrait \texttt{sim\_insts} et \texttt{numCycles} des runs \texttt{DONE} ;
+  \item calcule l'IPC pour chaque configuration \((width,threads)\) ;
+  \item exporte les résultats détaillés et les maxima.
+\end{itemize}
+
+\textbf{Comment il le fait :}
+\begin{itemize}
+  \item lit \texttt{state.tsv}, filtre les runs valides et ouvre chaque \texttt{stats.txt} ;
+  \item utilise \(\max(\texttt{system.cpu*.numCycles})\) en multicœur, avec fallback \texttt{system.cpu.numCycles} en mono-cœur ;
+  \item écrit \texttt{results/images/A15/q9\_ipc.csv} et \texttt{results/images/A15/q9\_ipc\_max.csv}.
+\end{itemize}
+
+\subsection{Expérimentation}
+
+L'expérimentation a été lancée avec le script \texttt{run\_q9\_a15.sh} en conservant les valeurs par défaut du script :
+\texttt{size=64}, \texttt{widths=\{2,4,8\}}, \texttt{threads} en puissances de 2, caches activés, et sorties dans \texttt{results/A15}.
+
+Nous visions initialement une exploration jusqu'à 64 threads. En pratique, les exécutions à forte concurrence ont présenté des \texttt{SIGSEGV} de gem5 (même après le message \texttt{Done} du benchmark), conformément au diagnostic détaillé dans \texttt{docs/report/sections/A15\_boundary.md}.
+
+Il est important de préciser que ce \texttt{Done} est imprimé par \texttt{test\_omp} et signifie uniquement que le calcul applicatif est terminé ; il ne garantit pas la fin correcte de toute l'exécution gem5, puisque l'état \texttt{DONE} n'est validé que si le processus gem5 se termine avec \texttt{exit=0}.
+
+La mitigation \texttt{--omp-active-wait} (réduction de l'usage de la voie \texttt{futex}/mutex) a été déterminante pour stabiliser les cas en largeur 4, notamment à partir de \texttt{threads=16} et au-delà ; sans cette mitigation, plusieurs combinaisons échouaient.
+
+\paragraph{Résultats numériques (extraits de \texttt{results/images/q9\_cycles.csv})}
+\begin{center}
+\scriptsize
+\begin{tabular}{c c c}
+\hline
+\textbf{Width} & \textbf{Threads} & \textbf{Cycles} \\
+\hline
+2 & 2  & 1282419 \\
+2 & 4  & 768565  \\
+2 & 8  & 515053  \\
+2 & 16 & 391465  \\
+2 & 32 & 341535  \\
+4 & 2  & 801594  \\
+4 & 4  & 520290  \\
+4 & 8  & 381832  \\
+4 & 16 & 318392  \\
+4 & 32 & 302483  \\
+8 & 2  & 785008  \\
+8 & 4  & 510238  \\
+8 & 8  & 376396  \\
+8 & 16 & 315224  \\
+8 & 32 & 299612  \\
+\hline
+\end{tabular}
+\captionof{table}{Cycles d'exécution obtenus pour Q9 (size=64).}
+\label{tab:q9-cycles}
+\end{center}
+
+\paragraph{Visualisation 3D}
+\begin{center}
+\includegraphics[width=0.98\linewidth]{../../results/images/q9_cycles_3d.png}
+\captionof{figure}{Graphe 3D des cycles (X=threads, Y=voies/o3-width, Z=cycles).}
+\label{fig:q9-cycles-3d}
+\end{center}
+
+
+\paragraph{Cycles de référence à 1 thread (extraits de \texttt{results/images/q9\_speedup.csv})}
+\begin{center}
+\scriptsize
+\begin{tabular}{c c}
+\hline
+\textbf{Width} & \textbf{Cycles (threads=1)} \\
+\hline
+2 & 2308481 \\
+4 & 1365568 \\
+8 & 1334530 \\
+\hline
+\end{tabular}
+\captionof{table}{Cycles de référence utilisés pour le calcul du speedup.}
+\label{tab:q9-cycles-t1}
+\end{center}
+
+\paragraph{Calcul du speedup et résultats}
+Le speedup est calculé, pour chaque largeur \(w\), par rapport au cas \texttt{threads=1} de la même largeur :
+\[
+S(w,t) = \frac{C_{w,1}}{C_{w,t}}
+\]
+où \(C_{w,t}\) est le nombre de cycles de la configuration \((w,t)\). Dans notre cas, les valeurs obtenues sont celles de \texttt{results/images/q9\_speedup.csv} :
+
+\begin{center}
+\scriptsize
+\begin{tabular}{c c c c}
+\hline
+\textbf{Threads} & \textbf{Speedup (w=2)} & \textbf{Speedup (w=4)} & \textbf{Speedup (w=8)} \\
+\hline
+1  & 1.000 & 1.000 & 1.000 \\
+2  & 1.800 & 1.704 & 1.700 \\
+4  & 3.004 & 2.625 & 2.616 \\
+8  & 4.482 & 3.576 & 3.546 \\
+16 & 5.897 & 4.289 & 4.234 \\
+32 & 6.759 & 4.515 & 4.454 \\
+\hline
+\end{tabular}
+\captionof{table}{Speedup obtenu pour Q9 (size=64), calculé à partir de \texttt{q9\_speedup.csv}.}
+\label{tab:q9-speedup}
+\end{center}
+
+\paragraph{IPC maximal par configuration}
+Pour traiter la question sur l'IPC, nous avons créé le script \texttt{scripts/extract\_q9\_ipc.py}. Ce script lit \texttt{state.tsv} et les \texttt{stats.txt}, calcule :
+\[
+IPC(w,t)=\frac{\texttt{sim\_insts}(w,t)}{\texttt{cycles}(w,t)}
+\]
+et écrit les résultats dans :
+\begin{itemize}
+  \item \texttt{results/images/A15/q9\_ipc.csv},
+  \item \texttt{results/images/A15/q9\_ipc\_max.csv}.
+\end{itemize}
+
+\begin{center}
+\scriptsize
+\begin{tabular}{c c c c}
+\hline
+\textbf{Width} & \textbf{Threads au max} & \textbf{IPC max}\\
+\hline
+2 & 32 & 14.696 \\
+4 & 32 & 19.221 \\
+8 & 32 & 23.301 \\
+\hline
+\end{tabular}
+\captionof{table}{IPC maximal pour chaque largeur (size=64).}
+\label{tab:q9-ipc-max-width}
+\end{center}
+
+Le maximum global observé est \(\mathbf{IPC=23.301}\), obtenu pour \texttt{width=8} et \texttt{threads=32}.
