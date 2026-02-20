@@ -113,3 +113,45 @@ La mitigation \texttt{--omp-active-wait} (réduction de l'usage de la voie \text
 \captionof{figure}{Graphe 3D des cycles (X=threads, Y=voies/o3-width, Z=cycles).}
 \label{fig:q9-cycles-3d}
 \end{center}
+
+
+\paragraph{Cycles de référence à 1 thread (extraits de \texttt{results/images/q9\_speedup.csv})}
+\begin{center}
+\scriptsize
+\begin{tabular}{c c}
+\hline
+\textbf{Width} & \textbf{Cycles (threads=1)} \\
+\hline
+2 & 2308481 \\
+4 & 1365568 \\
+8 & 1334530 \\
+\hline
+\end{tabular}
+\captionof{table}{Cycles de référence utilisés pour le calcul du speedup.}
+\label{tab:q9-cycles-t1}
+\end{center}
+
+\paragraph{Calcul du speedup et résultats}
+Le speedup est calculé, pour chaque largeur \(w\), par rapport au cas \texttt{threads=1} de la même largeur :
+\[
+S(w,t) = \frac{C_{w,1}}{C_{w,t}}
+\]
+où \(C_{w,t}\) est le nombre de cycles de la configuration \((w,t)\). Dans notre cas, les valeurs obtenues sont celles de \texttt{results/images/q9\_speedup.csv} :
+
+\begin{center}
+\scriptsize
+\begin{tabular}{c c c c}
+\hline
+\textbf{Threads} & \textbf{Speedup (w=2)} & \textbf{Speedup (w=4)} & \textbf{Speedup (w=8)} \\
+\hline
+1  & 1.000 & 1.000 & 1.000 \\
+2  & 1.800 & 1.704 & 1.700 \\
+4  & 3.004 & 2.625 & 2.616 \\
+8  & 4.482 & 3.576 & 3.546 \\
+16 & 5.897 & 4.289 & 4.234 \\
+32 & 6.759 & 4.515 & 4.454 \\
+\hline
+\end{tabular}
+\captionof{table}{Speedup obtenu pour Q9 (size=64), calculé à partir de \texttt{q9\_speedup.csv}.}
+\label{tab:q9-speedup}
+\end{center}

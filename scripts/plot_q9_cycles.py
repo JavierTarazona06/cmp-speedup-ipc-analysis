@@ -12,7 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-CYCLES_RE = re.compile(r"^system\.cpu\d+\.numCycles\s+(\d+)\b")
+CYCLES_MULTI_RE = re.compile(r"^system\.cpu\d+\.numCycles\s+(\d+)\b")
+CYCLES_SINGLE_RE = re.compile(r"^system\.cpu\.numCycles\s+(\d+)\b")
 
 
 def parse_args():
@@ -59,15 +60,23 @@ def read_state_rows(state_file):
 
 def extract_cycles(stats_path):
     max_cycles = None
+    single_cycles = None
     with stats_path.open("r", encoding="utf-8", errors="replace") as handle:
         for line in handle:
-            match = CYCLES_RE.match(line)
-            if not match:
+            multi_match = CYCLES_MULTI_RE.match(line)
+            if multi_match:
+                value = int(multi_match.group(1))
+                if max_cycles is None or value > max_cycles:
+                    max_cycles = value
                 continue
-            value = int(match.group(1))
-            if max_cycles is None or value > max_cycles:
-                max_cycles = value
-    return max_cycles
+
+            single_match = CYCLES_SINGLE_RE.match(line)
+            if single_match:
+                single_cycles = int(single_match.group(1))
+
+    # Keep prior behavior for multicore runs (max across cpu0..cpuN).
+    # Fall back to system.cpu.numCycles for single-core runs.
+    return max_cycles if max_cycles is not None else single_cycles
 
 
 def collect_done_runs(state_rows, size_filter):
@@ -124,6 +133,51 @@ def write_csv(rows, csv_path):
         )
         writer.writeheader()
         writer.writerows(rows_sorted)
+
+
+def write_speedup_csv(rows, speedup_csv_path):
+    rows_sorted = sorted(rows, key=lambda x: (x["size"], x["width"], x["threads"]))
+    baseline_cycles_by_width = {
+        row["width"]: row["cycles"] for row in rows_sorted if row["threads"] == 1
+    }
+
+    rows_with_speedup = []
+    missing_baseline_widths = set()
+    for row in rows_sorted:
+        baseline_cycles = baseline_cycles_by_width.get(row["width"])
+        if baseline_cycles is None:
+            missing_baseline_widths.add(row["width"])
+            continue
+
+        rows_with_speedup.append(
+            {
+                "size": row["size"],
+                "width": row["width"],
+                "threads": row["threads"],
+                "cycles": row["cycles"],
+                "cycles_t1": baseline_cycles,
+                "speedup": baseline_cycles / row["cycles"],
+                "outdir": row["outdir"],
+            }
+        )
+
+    with speedup_csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "size",
+                "width",
+                "threads",
+                "cycles",
+                "cycles_t1",
+                "speedup",
+                "outdir",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows_with_speedup)
+
+    return sorted(missing_baseline_widths)
 
 
 def build_grid(rows):
@@ -218,13 +272,22 @@ def main():
     images_dir.mkdir(parents=True, exist_ok=True)
 
     csv_path = images_dir / "q9_cycles.csv"
+    speedup_csv_path = images_dir / "q9_speedup.csv"
     image_path = images_dir / "q9_cycles_3d.png"
 
     write_csv(done_rows, csv_path)
+    missing_baseline_widths = write_speedup_csv(done_rows, speedup_csv_path)
     plot_3d(done_rows, image_path, selected_size)
 
     print(f"Wrote CSV: {csv_path}")
+    print(f"Wrote speedup CSV: {speedup_csv_path}")
     print(f"Wrote image: {image_path}")
+
+    if missing_baseline_widths:
+        print(
+            f"Warning: missing threads=1 baseline for widths: {missing_baseline_widths}. "
+            "Those widths were skipped in q9_speedup.csv."
+        )
 
     if missing_rows:
         print("Runs not included in CSV/plot:")
