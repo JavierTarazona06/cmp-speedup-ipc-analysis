@@ -126,7 +126,7 @@ La mitigation \texttt{--omp-active-wait} (réduction de l'usage de la voie \text
 
 \paragraph{Visualisation 3D}
 \begin{center}
-\includegraphics[width=0.98\linewidth]{../../results/images/q9_cycles_3d.png}
+\includegraphics[width=0.98\linewidth]{../../results/images/A15/q9_cycles_3d.png}
 \captionof{figure}{Graphe 3D des cycles (X=threads, Y=voies/o3-width, Z=cycles).}
 \label{fig:q9-cycles-3d}
 \end{center}
@@ -199,4 +199,50 @@ et écrit les résultats dans :
 \label{tab:q9-ipc-max-width}
 \end{center}
 
-Le maximum global observé est \(\mathbf{IPC=23.301}\), obtenu pour \texttt{width=8} et \texttt{threads=32}.
+Le maximum global observé est \(\mathbf{IPC=23.301}\), obtenu pour \texttt{width=8} et 
+\texttt{threads=32}.
+
+\subsection{Analyse de Résultats}
+
+\paragraph{Limites d'exécution en gem5 (SE) : nombre de threads et stabilité}
+Nous avions prévu d'explorer jusqu'à 64 threads, mais en pratique une limite nette de stabilité est apparue avec gem5-stable (mode SE) : au-delà d'un certain niveau de concurrence (dès \texttt{threads=40} dans nos essais), gem5 termine en \texttt{SIGSEGV} (\texttt{exit=139}), parfois \emph{après} que le benchmark ait affiché \texttt{Done} (le calcul applicatif est fini, mais la simulation n'est pas finalisée correctement). Cette limite est attribuée à une instabilité du simulateur plutôt qu'à un bug fonctionnel de \texttt{test\_omp} (voir le diagnostic expérimental dans \texttt{docs/report/sections/A15\_boundary.md}).
+
+Un point important est que, dans ce TP, \texttt{nthreads = ncores} est imposé en mode SE (librairie pthreads en développement) : dans notre flot, \texttt{threads} est couplé à \texttt{--num-cpus} côté gem5 (cf. sujet du TP \texttt{docs/consigne.pdf}). Autrement dit, augmenter \texttt{threads} augmente aussi le nombre de cœurs simulés, ce qui amplifie la pression sur la hiérarchie mémoire, la cohérence, et la synchronisation.
+
+\paragraph{Instabilité \texttt{futex}/mutex et mitigation \texttt{--omp-active-wait} (width $\ge 4$)}
+En plus de la limite « trop de threads », nous avons observé des échecs plus tôt pour des largeurs superscalaires plus élevées (à partir de \texttt{width=4}) quand le nombre de threads augmente. La cause la plus probable est liée au chemin de synchronisation OpenMP/libgomp en Linux : lors des barrières/verrous, libgomp utilise \texttt{futex} (*fast userspace mutex*) pour endormir/réveiller des threads sans consommer de CPU. Or, en gem5 SE (notamment sur des versions anciennes), la prise en charge de certains cas \texttt{futex} peut être incomplète/instable, et la fréquence accrue des synchronisations à forte concurrence augmente la probabilité de déclencher ce problème.
+
+La mitigation utilisée est \texttt{--omp-active-wait} (décrite dans \texttt{scripts/A15/A15\_commands.md}) qui injecte \texttt{OMP\_WAIT\_POLICY=ACTIVE} et un \texttt{GOMP\_SPINCOUNT} très élevé : les threads attendent davantage en \emph{spinning} en espace utilisateur, ce qui réduit les blocages/réveils via \texttt{futex}. Concrètement, cela a permis de faire passer des combinaisons qui échouaient auparavant (par exemple \texttt{width=4} avec plusieurs threads), même si, à très forte concurrence, une instabilité résiduelle peut encore persister (voir \texttt{docs/report/sections/A15\_boundary.md}).
+
+\paragraph{Pourquoi les cycles diminuent quand on augmente les threads (TLP/CMP)}
+La Table~\ref{tab:q9-cycles} montre une tendance monotone : à largeur fixe, plus le nombre de threads est grand, plus le nombre de cycles diminue. Cela s'explique principalement par le parallélisme au niveau des threads (TLP) sur une architecture CMP : chaque thread OpenMP exécute une partie du travail (multiplication de matrices) sur un cœur distinct, et le temps total est gouverné par le cœur le plus long (métrique \(\max(\texttt{system.cpu*.numCycles})\)). En augmentant \texttt{threads}, on réduit la quantité de travail par cœur et on augmente le parallélisme global, donc le nombre de cycles d'exécution diminue.
+
+Le gain reste cependant sous-linéaire (cf. Table~\ref{tab:q9-speedup}) à cause (i) des portions sérielles incompressibles (création/fin des threads, initialisations), (ii) des surcoûts de synchronisation (barrières OpenMP), et (iii) des effets de hiérarchie mémoire/cohérence quand beaucoup de cœurs accèdent aux mêmes structures de données (bus/mémoire partagés).
+
+\paragraph{Pourquoi les cycles diminuent quand on augmente la largeur superscalaire (ILP/OoO)}
+À nombre de threads donné, on observe aussi une baisse des cycles quand \texttt{width} augmente
+ (Table~\ref{tab:q9-cycles}). Ici, \texttt{width} correspond au degré de traitement 
+ superscalaire côté cœur (dans nos scripts, c'est l'\texttt{issueWidth} du modèle o3). 
+ Une largeur plus grande permet d'émettre davantage d'instructions par cycle quand le 
+ code présente suffisamment d'indépendances (ILP), et l'exécution out-of-order contribue
+ à mieux cacher des latences (par exemple en chevauchant calculs et accès mémoire). Cela
+  correspond au positionnement “hautes performances” du Cortex-A15, conçu pour exploiter
+   agressivement l'ILP.
+
+La différence entre \texttt{width=4} et \texttt{width=8} devient toutefois plus faible à 
+forte concurrence : une partie des cycles est alors contrainte par la synchronisation et la 
+mémoire partagée, et non plus uniquement par la largeur d'émission d'instructions (rendements
+ décroissants).
+
+\paragraph{Lecture du graphe 3D}
+La Figure~\ref{fig:q9-cycles-3d} illustre la même tendance sous forme de surface : on observe une « colline » pour \texttt{threads} faibles et \texttt{width} faible (beaucoup de cycles), puis une descente progressive quand on augmente l'un et/ou l'autre paramètre. Le « vallon » de cycles minimaux correspond à la zone de plus forte exploitation conjointe du parallélisme TLP (plus de cœurs) et de l'ILP (cœurs plus larges), dans la limite des surcoûts mémoire/synchronisation.
+
+\paragraph{Speedup : pourquoi le maximum est à \texttt{width=2} sans être le meilleur temps absolu}
+Dans la Table~\ref{tab:q9-speedup}, le meilleur speedup est obtenu pour \texttt{width=2} et \texttt{threads=32} (\(S=6.759\)), supérieur à \texttt{width=4} (\(4.515\)) et \texttt{width=8} (\(4.454\)). Ce résultat s'explique d'abord par la définition du speedup : \(S(w,t)=C_{w,1}/C_{w,t}\). Or, le cas mono-thread à \texttt{width=2} est nettement plus lent (\(C_{2,1}\) est bien plus grand que \(C_{4,1}\) et \(C_{8,1}\), Table~\ref{tab:q9-cycles-t1}), ce qui donne mécaniquement davantage de “marge” pour augmenter le ratio.
+
+Ensuite, avec des cœurs plus larges (\texttt{width=4/8}), chaque cœur produit plus de requêtes et atteint plus vite un régime limité par des ressources partagées (mémoire, cohérence, barrières OpenMP). On « plafonne » donc plus tôt en speedup relatif, même si le temps absolu continue de baisser. En performance pure (cycles minimaux), la meilleure configuration observée est \texttt{width=8, threads=32} (\(299\,612\) cycles, Table~\ref{tab:q9-cycles}). Ainsi, le “gagnant” dépend du critère : \texttt{width=2} maximise le speedup relatif, tandis que \texttt{width=8} minimise les cycles (et correspond mieux à une configuration A15 performante).
+
+\paragraph{IPC : maximum à \texttt{threads=32} et notion de « configuration la plus efficace »}
+La Table~\ref{tab:q9-ipc-max-width} montre que, pour chaque largeur, l'IPC maximal est atteint à \texttt{threads=32}, et que le maximum global est obtenu pour \texttt{width=8, threads=32} avec \(IPC=23.301\). Dans notre extraction, l'IPC est calculé comme \(\texttt{sim\_insts}/\texttt{cycles}\) avec \(\texttt{cycles}=\max(\texttt{system.cpu*.numCycles})\) : c'est donc un \emph{IPC global} (débit d'instructions agrégé sur la durée critique), qui augmente naturellement quand on ajoute des cœurs/threads et quand les cœurs sont plus capables de retirer des instructions.
+
+Dans le cadre de ce TP et de cette métrique, \texttt{width=8, threads=32} est bien la configuration la plus “efficace” au sens \emph{débit par cycle} et aussi la plus performante en cycles. En revanche, cela ne préjuge pas de l'efficacité énergétique ou du coût matériel (non modélisés ici), et le fait que \texttt{threads=32} soit maximal reflète aussi notre limite opérationnelle de stabilité (au-delà, gem5 devient instable).
