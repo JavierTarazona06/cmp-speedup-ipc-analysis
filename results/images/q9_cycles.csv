@@ -1,0 +1,16 @@
+size,width,threads,cycles,outdir
+64,2,2,1282419,results/A15/s64_w2_t2
+64,2,4,768565,results/A15/s64_w2_t4
+64,2,8,515053,results/A15/s64_w2_t8
+64,2,16,391465,results/A15/s64_w2_t16
+64,2,32,341535,results/A15/s64_w2_t32
+64,4,2,801594,results/A15/s64_w4_t2
+64,4,4,520290,results/A15/s64_w4_t4
+64,4,8,381832,results/A15/s64_w4_t8
+64,4,16,318392,results/A15/s64_w4_t16
+64,4,32,302483,results/A15/s64_w4_t32
+64,8,2,785008,results/A15/s64_w8_t2
+64,8,4,510238,results/A15/s64_w8_t4
+64,8,8,376396,results/A15/s64_w8_t8
+64,8,16,315224,results/A15/s64_w8_t16
+64,8,32,299612,results/A15/s64_w8_t32
