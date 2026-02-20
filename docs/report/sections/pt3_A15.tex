@@ -3,12 +3,13 @@
 
 \subsection{Stratégie adoptée pour traiter la Q9}
 
-Pour répondre à la Q9 (faire varier le nombre de threads et la largeur superscalaire, puis produire un graphe 3D des cycles), nous avons mis en place une chaîne reproductible en trois scripts :
+Pour répondre à la Q9 (faire varier le nombre de threads et la largeur superscalaire, puis produire un graphe 3D des cycles), nous avons mis en place une chaîne reproductible en quatre scripts :
 
 \begin{itemize}
   \item un script d'orchestration des simulations,
   \item un script gem5 SE adapté au modèle A15/o3,
-  \item un script de post-traitement pour extraire les cycles et générer la visualisation.
+  \item un script de post-traitement pour extraire les cycles et générer la visualisation,
+  \item un script dédié à l'extraction/calcul de l'IPC.
 \end{itemize}
 
 Cette organisation permet de lancer une campagne complète, reprendre après erreur, tracer précisément chaque exécution, et générer automatiquement le CSV et la figure 3D demandés.
@@ -66,6 +67,22 @@ Cette organisation permet de lancer une campagne complète, reprendre après err
   \item récupère la métrique \texttt{system.cpu*.numCycles} et conserve la valeur maximale par run ;
   \item écrit \texttt{q9\_cycles.csv} puis trace \texttt{q9\_cycles\_3d.png} avec Matplotlib ;
   \item signale explicitement les combinaisons manquantes/invalides non incluses dans la figure.
+\end{itemize}
+
+\subsection{Script \texttt{extract\_q9\_ipc.py}: extraction de l'IPC}
+
+\textbf{Ce qu'il fait :}
+\begin{itemize}
+  \item extrait \texttt{sim\_insts} et \texttt{numCycles} des runs \texttt{DONE} ;
+  \item calcule l'IPC pour chaque configuration \((width,threads)\) ;
+  \item exporte les résultats détaillés et les maxima.
+\end{itemize}
+
+\textbf{Comment il le fait :}
+\begin{itemize}
+  \item lit \texttt{state.tsv}, filtre les runs valides et ouvre chaque \texttt{stats.txt} ;
+  \item utilise \(\max(\texttt{system.cpu*.numCycles})\) en multicœur, avec fallback \texttt{system.cpu.numCycles} en mono-cœur ;
+  \item écrit \texttt{results/images/A15/q9\_ipc.csv} et \texttt{results/images/A15/q9\_ipc\_max.csv}.
 \end{itemize}
 
 \subsection{Expérimentation}
@@ -155,3 +172,31 @@ où \(C_{w,t}\) est le nombre de cycles de la configuration \((w,t)\). Dans notr
 \captionof{table}{Speedup obtenu pour Q9 (size=64), calculé à partir de \texttt{q9\_speedup.csv}.}
 \label{tab:q9-speedup}
 \end{center}
+
+\paragraph{IPC maximal par configuration}
+Pour traiter la question sur l'IPC, nous avons créé le script \texttt{scripts/extract\_q9\_ipc.py}. Ce script lit \texttt{state.tsv} et les \texttt{stats.txt}, calcule :
+\[
+IPC(w,t)=\frac{\texttt{sim\_insts}(w,t)}{\texttt{cycles}(w,t)}
+\]
+et écrit les résultats dans :
+\begin{itemize}
+  \item \texttt{results/images/A15/q9\_ipc.csv},
+  \item \texttt{results/images/A15/q9\_ipc\_max.csv}.
+\end{itemize}
+
+\begin{center}
+\scriptsize
+\begin{tabular}{c c c c}
+\hline
+\textbf{Width} & \textbf{Threads au max} & \textbf{IPC max}\\
+\hline
+2 & 32 & 14.696 \\
+4 & 32 & 19.221 \\
+8 & 32 & 23.301 \\
+\hline
+\end{tabular}
+\captionof{table}{IPC maximal pour chaque largeur (size=64).}
+\label{tab:q9-ipc-max-width}
+\end{center}
+
+Le maximum global observé est \(\mathbf{IPC=23.301}\), obtenu pour \texttt{width=8} et \texttt{threads=32}.
