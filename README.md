@@ -131,56 +131,6 @@ Commande équivalente (sans `make`) :
 $GEM5/build/ARM/gem5.fast $GEM5/configs/example/se.py -n 2 -c $GEM5/../test_omp -o "2 64"
 ```
 
-## Q9 A15 batch (threads x voies)
+## Q9-12 A15 batch (threads x voies)
 
-Pour Q9 (Cortex A15, `o3/detailed`), utilisez les scripts dans `scripts/` pour lancer toutes les combinaisons, reprendre après erreur et générer la figure 3D.
-
-### 1) Lancer la campagne complète
-
-```bash
-scripts/run_q9_a15.sh \
-  --gem5 /home/g/gbusnot/ES201/tools/TP5/gem5-stable \
-  --binary ./test_omp \
-  --size 64
-```
-
-Par défaut :
-- `widths = 2 4 8` (`--o3-width`),
-- `threads = 1 2 4 ... <= size`,
-- `num-cpus = threads`,
-- caches activés (`--caches --l2cache`),
-- sorties dans `results/A15/`.
-
-### 2) Reprendre après erreur
-
-Le script s’arrête au premier échec, écrit le log complet dans `results/A15/logs/` et marque l’état dans `results/A15/state.tsv`.
-
-Pour reprendre, relancez la même commande :
-
-```bash
-scripts/run_q9_a15.sh \
-  --gem5 /home/g/gbusnot/ES201/tools/TP5/gem5-stable \
-  --binary ./test_omp \
-  --size 64
-```
-
-Les exécutions déjà `DONE` sont sautées automatiquement.
-
-### 3) Générer CSV + graphe 3 axes
-
-```bash
-python3 scripts/plot_q9_cycles.py \
-  --state-file results/A15/state.tsv \
-  --images-dir results/images \
-  --size 64
-```
-
-Fichiers générés :
-- `results/images/q9_cycles.csv`
-- `results/images/q9_cycles_3d.png`
-
-Axes du graphe 3D (Q9) :
-- X = nombre de threads,
-- Y = nombre de voies (`o3-width`),
-- Z = cycles d’exécution (`max(system.cpu*.numCycles)`).
-
+Les instructions se trouvent dans [`scripts/A15/A15_commands.md`](scripts/A15/A15_commands.md).

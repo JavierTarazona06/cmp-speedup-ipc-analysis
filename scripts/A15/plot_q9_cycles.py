@@ -18,7 +18,7 @@ CYCLES_SINGLE_RE = re.compile(r"^system\.cpu\.numCycles\s+(\d+)\b")
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Extract Q9 cycles from gem5 runs and generate a 3D plot."
+        description="Extract Q9 cycles from gem5 runs and generate a 3D plot. And calculate speedup CSV based on threads=1 baselines."
     )
     parser.add_argument(
         "--results-root",
@@ -27,8 +27,8 @@ def parse_args():
     )
     parser.add_argument(
         "--images-dir",
-        default="results/images",
-        help="Directory where CSV and images are written (default: results/images).",
+        default="results/images/A15",
+        help="Directory where CSV and images are written (default: results/images/A15).",
     )
     parser.add_argument(
         "--state-file",
