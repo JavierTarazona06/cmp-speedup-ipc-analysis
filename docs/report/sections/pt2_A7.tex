@@ -41,7 +41,7 @@ Le résultat \textbf{Tous égaux ? = YES} à \(T=64\) peut sembler contre-intuit
 Nous avons vérifié que, pour \(T=64\), la distribution de \texttt{numCycles} est bien dégénérée :
 \[
 \min(\texttt{numCycles}) = \max(\texttt{numCycles}) = 227\,503
-\quad \text{(64 occurrences)}.
+\quad \text{(64)}.
 \]
 Autrement dit, tous les cœurs partagent le même horizon temporel global jusqu’à la fin.
 
@@ -115,3 +115,107 @@ où \(T\) est le nombre de threads OpenMP (avec \texttt{nthreads=ncores}).
 
 \paragraph{Interprétation}
 On observe une diminution monotone de \(C(T)\) lorsque \(T\) augmente, ce qui traduit l’exploitation du parallélisme au niveau des threads (TLP) sur une architecture CMP : la multiplication de matrices est répartie entre plusieurs cœurs, réduisant la quantité de travail par cœur et donc le temps total. Le gain reste toutefois sous-linéaire : (i) une partie des opérations et surcoûts est incompressible (initialisations, fork/join), (ii) les barrières OpenMP imposent des points de synchronisation, et (iii) les ressources partagées (hiérarchie mémoire, interconnexion, cohérence/cache) limitent l’accélération lorsque le nombre de cœurs/threads augmente.
+
+\subsection{Q6 : calcul du speedup et interprétation}
+\raggedbottom
+
+Le speedup est calculé par rapport au cas mono-thread (\(T=1\)) à taille fixe (\texttt{size=64}) :
+\[
+S(T)=\frac{C(1)}{C(T)},
+\]
+où \(C(T)=\max(\texttt{system.cpu*.numCycles})\) est le nombre de cycles retenu (métrique de la Q4/Q5).
+
+\paragraph{Résultats numériques (extraits de \texttt{results/images/A7/q6\_speedup.csv})}
+\begin{center}
+\scriptsize
+\begin{tabular}{c c}
+\hline
+\textbf{Threads} & \textbf{Speedup} \\
+\hline
+1  & 1.000 \\
+2  & 1.928 \\
+4  & 3.596 \\
+8  & 6.332 \\
+16 & 10.193 \\
+32 & 14.562 \\
+64 & 18.200 \\
+\hline
+\end{tabular}
+\captionof{table}{Speedup obtenu pour Q6 (A7, size=64), calculé à partir de \texttt{q6\_speedup.csv}.}
+\label{tab:q6-a7-speedup}
+\end{center}
+
+\paragraph{Visualisation 2D (speedup mesuré)}
+\begin{center}
+\includegraphics[width=0.98\linewidth]{../../results/images/A7/q6_speedup_vs_threads.png}
+\captionof{figure}{Speedup mesuré \(S(T)=C(1)/C(T)\) en fonction du nombre de threads (A7, size=64).}
+\label{fig:q6-a7-speedup-measured}
+\end{center}
+
+\paragraph{Interprétation (speedup mesuré)}
+Le speedup augmente de manière monotone avec \(T\), ce qui confirme que l’application (multiplication de matrices) exploite efficacement le parallélisme au niveau des threads sur une architecture CMP. Néanmoins, la croissance reste \emph{sous-linéaire} : pour \(T=64\), on obtient \(S(64)=18.2\), bien inférieur à l’idéal \(64\). Plusieurs facteurs expliquent cet écart :
+(i) une fraction incompressible du travail et des surcoûts (initialisations, création/fin des threads) limite le gain (loi d’Amdahl) ;
+(ii) les synchronisations OpenMP (barrières implicites) imposent des attentes : les cœurs doivent se réaligner, ce qui pénalise la progression globale ;
+(iii) la hiérarchie mémoire et les ressources partagées (interconnexion, bande passante mémoire, cohérence/cache) limitent l’accélération quand beaucoup de cœurs accèdent simultanément aux matrices.
+On observe en pratique des rendements décroissants : le gain marginal se réduit quand \(T\) augmente (par exemple, \(S(32)\approx 14.56\) puis \(S(64)\approx 18.2\)), signe que l’exécution s’approche d’un régime davantage contraint par synchronisation/mémoire que par la seule quantité de calcul.
+
+\paragraph{Visualisation 2D avec référence idéale \(S(T)=T\)}
+\begin{center}
+\includegraphics[width=0.98\linewidth]{../../results/images/A7/q6_speedup_vs_threads_ideal.png}
+\captionof{figure}{Speedup mesuré comparé à la référence idéale \(S_{\text{ideal}}(T)=T\) (A7, size=64).}
+\label{fig:q6-a7-speedup-ideal}
+\end{center}
+
+\paragraph{Interprétation (comparaison à l’idéal)}
+La droite \(S_{\text{ideal}}(T)=T\) correspond à une accélération parfaite (temps divisé par \(T\)), ce qui supposerait l’absence totale de surcoûts et de contention. L’écart croissant entre la courbe mesurée et cette droite illustre la saturation progressive : à faible \(T\), le speedup est relativement proche de l’idéal (p.ex. \(S(4)=3.60\) vs \(4\)), mais à fort \(T\), les surcoûts dominent (p.ex. \(S(64)=18.2\) vs \(64\)). Ce comportement est typique des CMP : l’ajout de cœurs réduit le travail par cœur, mais augmente aussi la pression sur les ressources partagées et la fréquence des synchronisations, ce qui plafonne l’accélération.
+
+\subsection{Q7 : IPC maximal par configuration}
+\raggedbottom
+
+La Q7 demande de déterminer l’IPC maximal pour chaque configuration (\(T\) threads). À partir de \texttt{stats.txt}, nous exploitons les compteurs par cœur :
+\texttt{system.cpuXX.committedInsts} (instructions retirées) et \texttt{system.cpuXX.numCycles} (cycles). Pour une configuration donnée, nous calculons l’IPC de chaque cœur :
+\[
+IPC_i(T)=\frac{\texttt{committedInsts}_i(T)}{\texttt{numCycles}_i(T)}
+\]
+et nous retenons l’IPC maximal :
+\[
+IPC_{\max}(T)=\max_i IPC_i(T).
+\]
+En complément, nous reportons aussi un \emph{IPC global} :
+\[
+IPC_{\text{global}}(T)=\frac{\texttt{sim\_insts}(T)}{C(T)},
+\qquad C(T)=\max(\texttt{system.cpu*.numCycles}),
+\]
+qui correspond à un débit d’instructions agrégé sur la durée critique.
+
+\paragraph{Résultats numériques (extraits de \texttt{results/images/A7/q7\_ipc.csv})}
+\begin{center}
+\scriptsize
+\begin{tabular}{c c c c}
+\hline
+\textbf{Threads} & \(\mathbf{IPC_{\max}}\) & \textbf{CPU à l’IPC max} & \(\mathbf{IPC_{\text{global}}}\) \\
+\hline
+1  & 0.992 & cpu00 & 0.992 \\
+2  & 0.986 & cpu00 & 1.914 \\
+4  & 0.974 & cpu00 & 3.572 \\
+8  & 0.955 & cpu00 & 6.304 \\
+16 & 0.928 & cpu00 & 10.213 \\
+32 & 0.896 & cpu00 & 14.885 \\
+64 & 0.865 & cpu00 & 19.907 \\
+\hline
+\end{tabular}
+\captionof{table}{IPC maximal et IPC global pour Q7 (A7, size=64).}
+\label{tab:q7-a7-ipc}
+\end{center}
+
+\paragraph{Visualisation 2D (IPC maximal)}
+\begin{center}
+\includegraphics[width=0.98\linewidth]{../../results/images/A7/q7_ipcmax_vs_threads.png}
+\captionof{figure}{\(IPC_{\max}(T)\) en fonction du nombre de threads (A7, size=64).}
+\label{fig:q7-a7-ipcmax}
+\end{center}
+
+\paragraph{Interprétation}
+On observe que \(IPC_{\max}\) décroît légèrement lorsque \(T\) augmente (de \(\approx 0.99\) à \(T=1\) vers \(\approx 0.87\) à \(T=64\)). Ce comportement est cohérent avec un régime de plus en plus contraint par la mémoire et la synchronisation : en augmentant le nombre de cœurs/threads, on augmente le nombre d’accès concurrents aux données (matrices) ainsi que la pression sur les ressources partagées (interconnexion, hiérarchie mémoire, cohérence/cache). Les cœurs passent alors davantage de cycles en attente (stalls), ce qui réduit leur IPC individuel maximal.
+
+À l’inverse, \(IPC_{\text{global}}\) augmente fortement avec \(T\) (jusqu’à \(\approx 19.9\) à \(T=64\)), car il mesure un débit agrégé : plus il y a de cœurs actifs, plus le nombre total d’instructions \texttt{sim\_insts} exécutées pendant la durée critique augmente. Ainsi, \(IPC_{\max}\) renseigne sur l’efficacité \emph{par cœur} (qui se dégrade légèrement), tandis que \(IPC_{\text{global}}\) reflète l’efficacité \emph{globale du CMP} (qui augmente avec le parallélisme), ce qui complète l’analyse des cycles (Q5) et du speedup (Q6).
