@@ -1,0 +1,4 @@
+% --- Section 5: Configuration CMP la plus efficace ---
+\subsection{Configuration CMP la plus efficace}
+% Q13: Réponse sur l'efficacité et le compromis
+D'après nos simulations, la configuration CMP avec deux cœurs Cortex-A7 (arm\_detailed) atteint un IPC d'environ \textbf{0.38} par cœur. Bien que cette valeur soit inférieure à celle d'un processeur Out-of-Order comme le A15, l'efficacité globale pour la multiplication de matrices est supérieure en termes de débit. En comparant avec le TP4, nous observons que les configurations ne sont pas équivalentes : \textbf{Dijkstra} nécessite une hiérarchie mémoire complexe (gain d'IPC de 55\% avec un cache large) pour masquer les latences, tandis que \textbf{MatMul} tire profit du parallélisme multinoyau. Le compromis optimal serait une architecture hétérogène (type \textit{big.LITTLE}) : un cœur "Performance" pour les tâches séquentielles lourdes et plusieurs cœurs "Efficacité" pour maximiser le parallélisme.
