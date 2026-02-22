@@ -1,0 +1,117 @@
+\subsection{Q4 : cœur critique (cycles maximaux) et lien avec le temps total}
+\raggedbottom
+
+L’objectif de la Q4 est d’identifier le processeur qui exécute le plus grand nombre de cycles et d’expliquer pourquoi ce processeur caractérise le temps total d’exécution. Pour chaque exécution, nous lisons dans \texttt{stats.txt} la métrique par cœur \texttt{system.cpuXX.numCycles} et nous définissons le coût temporel de l’application par :
+\[
+C(T) = \max_i \; C_i(T)
+\qquad \text{avec}
+\]
+\[
+\qquad
+C_i(T)=\texttt{system.cpu$i$.numCycles},
+\]
+où \(T\) est le nombre de threads OpenMP (avec \texttt{nthreads=ncores}).
+
+\paragraph{Résultats numériques (extraits de \texttt{results/images/A7/q4\_cycles.csv})}
+\begin{center}
+\scriptsize
+\begin{tabular}{c c c c}
+\hline
+\textbf{Threads} & \textbf{Cycles (max)} & \textbf{CPU critique} & \textbf{Tous égaux ?} \\
+\hline
+1  & 4\,140\,593 & cpu00 & YES \\
+2  & 2\,147\,905 & cpu00 & NO  \\
+4  & 1\,151\,585 & cpu00 & NO  \\
+8  & 653\,929    & cpu00 & NO  \\
+16 & 406\,212    & cpu00 & NO  \\
+32 & 284\,352    & cpu00 & NO  \\
+64 & 227\,503    & cpu00 & YES \\
+\hline
+\end{tabular}
+\captionof{table}{Cycles maximaux et cœur critique pour Q4 (A7, size=64).}
+\label{tab:q4-a7-cycles}
+\end{center}
+
+\paragraph{Pourquoi un cœur « critique » donne le temps total}
+En exécution parallèle, l’application ne peut terminer qu’après la complétion de tous les threads et la synchronisation finale (barrière/join OpenMP). Le temps total correspond donc au \emph{chemin critique} : il est gouverné par le cœur qui « finit en dernier ». En pratique, cette idée se traduit naturellement par la métrique \(C(T)=\max_i C_i(T)\), utilisée dans notre exploitation des résultats.
+
+\paragraph{Cas particulier observé à \(T=64\) : \texttt{numCycles} identiques sur tous les cœurs}
+Le résultat \textbf{Tous égaux ? = YES} à \(T=64\) peut sembler contre-intuitif si l’on interprète \texttt{numCycles} comme une mesure de « travail ». Or \texttt{numCycles} mesure avant tout un \emph{temps simulé} (nombre de cycles de l’horloge globale écoulés) jusqu’à l’événement d’arrêt de la simulation (ici l’appel \texttt{exit()} du programme, confirmé par le log \texttt{Done} puis \texttt{target called exit()}).
+
+Nous avons vérifié que, pour \(T=64\), la distribution de \texttt{numCycles} est bien dégénérée :
+\[
+\min(\texttt{numCycles}) = \max(\texttt{numCycles}) = 227\,503
+\quad \text{(64 occurrences)}.
+\]
+Autrement dit, tous les cœurs partagent le même horizon temporel global jusqu’à la fin.
+
+\paragraph{Pourquoi cela ne signifie pas « même travail » : instructions différentes}
+Pour distinguer \emph{temps} et \emph{travail}, nous regardons \texttt{system.cpuXX.committedInsts} (instructions effectivement retirées/committed). À \(T=64\), ces compteurs varient fortement :
+\[
+\min(\texttt{committedInsts}) = 63\,712,
+\]
+\[
+\max(\texttt{committedInsts}) = 196\,793.
+\]
+Le Tableau~\ref{tab:q4-a7-committed} illustre ce déséquilibre en montrant les 5 cœurs qui retirent le moins d’instructions et les 5 cœurs qui en retirent le plus.
+
+\begin{center}
+\scriptsize
+\begin{tabular}{c c c c}
+\hline
+\textbf{CPU (min)} & \textbf{Committed insts} & \textbf{CPU (max)} & \textbf{Committed insts} \\
+\hline
+cpu63 & 63\,712  & cpu04 & 73\,299  \\
+cpu62 & 63\,885  & cpu03 & 73\,467  \\
+cpu61 & 64\,053  & cpu02 & 73\,635  \\
+cpu60 & 64\,221  & cpu01 & 73\,803  \\
+cpu59 & 64\,389  & cpu00 & 196\,793 \\
+\hline
+\end{tabular}
+\captionof{table}{Extrêmes de \texttt{committedInsts} à \(T=64\) (size=64) : 5 plus faibles et 5 plus élevés.}
+\label{tab:q4-a7-committed}
+\end{center}
+
+Cela montre que même si les cœurs ont le même \texttt{numCycles} (même durée globale), ils n’exécutent pas la même quantité d’instructions : certains cœurs passent davantage de temps à attendre (synchronisation, contention mémoire, phases non uniformes), tandis que d’autres retirent plus d’instructions. Ainsi, le cas \(T=64\) est cohérent : \texttt{numCycles} reflète un temps global partagé, alors que \texttt{committedInsts} reflète la charge effective par cœur.
+
+\paragraph{Conclusion pour Q4}
+Pour \(T\in\{2,4,8,16,32\}\), les valeurs de \texttt{numCycles} diffèrent entre cœurs (\texttt{Tous égaux ? = NO}), et le cœur critique correspond au maximum de \texttt{numCycles} (ici \texttt{cpu00}), ce qui caractérise directement le temps total par le chemin critique. Pour \(T=64\), \texttt{numCycles} est identique sur tous les cœurs (\texttt{YES}) : il n’existe alors pas de cœur plus long unique, et \(C(T)\) correspond à l’horizon temporel global de la simulation, tandis que la variabilité de charge se lit via \texttt{committedInsts} (Tableau~\ref{tab:q4-a7-committed}).
+
+\subsection{Q5 : cycles d'exécution en fonction du nombre de threads}
+\raggedbottom
+
+La question Q5 demande de tracer un graphe 2D \texttt{threads} vs \texttt{cycles}. Pour rester cohérents avec la Q4, nous utilisons comme temps d'exécution applicatif :
+\[
+C(T)=\max(\texttt{system.cpu*.numCycles}),
+\]
+où \(T\) est le nombre de threads OpenMP (avec \texttt{nthreads=ncores}).
+
+\paragraph{Résultats numériques (extraits de \texttt{results/images/A7/q5\_cycles.csv})}
+\begin{center}
+\scriptsize
+\begin{tabular}{c c}
+\hline
+\textbf{Threads} & \textbf{Cycles} \\
+\hline
+1  & 4\,140\,593 \\
+2  & 2\,147\,905 \\
+4  & 1\,151\,585 \\
+8  & 653\,929    \\
+16 & 406\,212    \\
+32 & 284\,352    \\
+64 & 227\,503    \\
+\hline
+\end{tabular}
+\captionof{table}{Cycles d'exécution obtenus pour Q5 (A7, size=64).}
+\label{tab:q5-a7-cycles}
+\end{center}
+
+\paragraph{Visualisation 2D}
+\begin{center}
+\includegraphics[width=0.98\linewidth]{../../results/images/A7/q5_cycles_vs_threads.png}
+\captionof{figure}{Cycles d'exécution (A7, size=64) en fonction du nombre de threads, avec \(C(T)=\max(\texttt{system.cpu*.numCycles})\).}
+\label{fig:q5-a7-cycles-2d}
+\end{center}
+
+\paragraph{Interprétation}
+On observe une diminution monotone de \(C(T)\) lorsque \(T\) augmente, ce qui traduit l’exploitation du parallélisme au niveau des threads (TLP) sur une architecture CMP : la multiplication de matrices est répartie entre plusieurs cœurs, réduisant la quantité de travail par cœur et donc le temps total. Le gain reste toutefois sous-linéaire : (i) une partie des opérations et surcoûts est incompressible (initialisations, fork/join), (ii) les barrières OpenMP imposent des points de synchronisation, et (iii) les ressources partagées (hiérarchie mémoire, interconnexion, cohérence/cache) limitent l’accélération lorsque le nombre de cœurs/threads augmente.
