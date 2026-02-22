@@ -61,11 +61,15 @@
 \maketitle
 
 \begin{abstract}
-...
+Ce rapport présente une étude de performances d'un processeur multi-c\oe{}urs (CMP) simulé avec gem5 sur un benchmark OpenMP de multiplication de matrices.
+Nous analysons les effets de cohérence de cache et les paramètres par défaut du modèle CPU et de la hiérarchie mémoire.
+Nous mesurons ensuite, sur des c\oe{}urs Cortex-A7 in-order puis Cortex-A15 out-of-order, l'évolution des cycles, du speedup et de l'IPC en fonction du nombre de threads, et pour A15 en fonction de la largeur superscalaire.
+Les résultats mettent en évidence un gain important mais sous-linéaire, limité par les synchronisations OpenMP et la pression mémoire/cohérence, ainsi que des rendements décroissants lorsque la largeur augmente.
+Enfin, nous discutons des cas pouvant conduire à un speedup supra-linéaire lorsque l'ensemble de travail tient dans les caches privés.
 \end{abstract}
 
 \begin{IEEEkeywords}
-...
+gem5, architecture multi-c\oe{}ur (CMP), OpenMP, cohérence de cache, speedup, IPC, Cortex-A7, Cortex-A15, superscalaire.
 \end{IEEEkeywords}
 
 
@@ -73,7 +77,7 @@
 
 Pour l'analyse des performances, les environnements suivants ont été utilisés :
 \begin{itemize}
-    \item \textbf{Configuration Séquentielle (TP4) :} Station de travail type PC portable (Intel Core i7, 16 Go RAM) sous environnement WSL2.
+    \item \textbf{Configuration Séquentielle (TP4) :} Station de travail type PC portable (Intel Core i7 8750H, 16 Go RAM) sous environnement WSL2.
     \item \textbf{Configuration Parallèle (TP5) :} Serveur de calcul de l'école (Intel Xeon E5-2640 v2 @ 2.00GHz) via SSH.
 \end{itemize}
 
