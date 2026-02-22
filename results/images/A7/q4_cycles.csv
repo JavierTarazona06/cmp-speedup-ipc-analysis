@@ -1,0 +1,8 @@
+threads,cycles_max,critical_cpu,all_equal
+1,4140593,cpu00,YES
+2,2147905,cpu00,NO
+4,1151585,cpu00,NO
+8,653929,cpu00,NO
+16,406212,cpu00,NO
+32,284352,cpu00,NO
+64,227503,cpu00,YES
