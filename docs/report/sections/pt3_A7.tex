@@ -1,4 +1,4 @@
-\section{Architecture multicoeurs avec des processeurs superscalaires in-order (Cortex A7)}
+\section{Architecture multicoeurs avec des processeurs superscalaires in-order (Cortex A7 - Q4-Q8)}
 \subsection{Cœur critique (cycles maximaux) et lien avec le temps total}
 \raggedbottom
 
@@ -114,7 +114,7 @@ où \(T\) est le nombre de threads OpenMP (avec \texttt{nthreads=ncores}).
 \paragraph{Interprétation}
 On observe une diminution monotone de \(C(T)\) lorsque \(T\) augmente, ce qui traduit l’exploitation du parallélisme au niveau des threads (TLP) sur une architecture CMP : la multiplication de matrices est répartie entre plusieurs cœurs, réduisant la quantité de travail par cœur et donc le temps total. Le gain reste toutefois sous-linéaire : (i) une partie des opérations et surcoûts est incompressible (initialisations, fork/join), (ii) les barrières OpenMP imposent des points de synchronisation, et (iii) les ressources partagées (hiérarchie mémoire, interconnexion, cohérence/cache) limitent l’accélération lorsque le nombre de cœurs/threads augmente.
 
-\subsection{Calcul du speedup et interprétation}
+\subsection{Q6 -- Calcul du speedup et interprétation}
 \raggedbottom
 
 Le speedup est calculé par rapport au cas mono-thread (\(T=1\)) à taille fixe (\texttt{size=64}) :
@@ -220,7 +220,7 @@ On observe que \(IPC_{\max}\) décroît légèrement lorsque \(T\) augmente (de 
 
 À l’inverse, \(IPC_{\text{global}}\) augmente fortement avec \(T\) (jusqu’à \(\approx 19.9\) à \(T=64\)), car il mesure un débit agrégé : plus il y a de cœurs actifs, plus le nombre total d’instructions \texttt{sim\_insts} exécutées pendant la durée critique augmente. Ainsi, \(IPC_{\max}\) renseigne sur l’efficacité \emph{par cœur} (qui se dégrade légèrement), tandis que \(IPC_{\text{global}}\) reflète l’efficacité \emph{globale du CMP} (qui augmente avec le parallélisme), ce qui complète l’analyse des cycles (Q5) et du speedup (Q6).
 
-\subsection{Discussion}
+\subsection{Q8 -- Discussion}
 \raggedbottom
 
 \paragraph{Synthèse}
