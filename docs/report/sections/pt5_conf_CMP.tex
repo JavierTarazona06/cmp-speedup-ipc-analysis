@@ -1,4 +1,8 @@
 % --- Section 5: Configuration CMP la plus efficace ---
 \section{Configuration CMP la plus efficace}
-% Q13: Réponse sur l'efficacité et le compromis
-\textbf{Q13. } D'après nos simulations, la configuration CMP avec deux cœurs Cortex-A7 (arm\_detailed) atteint un IPC d'environ \textbf{0.38} par cœur. Bien que cette valeur soit inférieure à celle d'un processeur Out-of-Order comme le A15, l'efficacité globale pour la multiplication de matrices est supérieure en termes de débit. En comparant avec le TP4, nous observons que les configurations ne sont pas équivalentes : \textbf{Dijkstra} nécessite une hiérarchie mémoire complexe (gain d'IPC de 55\% avec un cache large) pour masquer les latences, tandis que \textbf{MatMul} tire profit du parallélisme multinoyau. Le compromis optimal serait une architecture hétérogène (type \textit{big.LITTLE}) : un cœur "Performance" pour les tâches séquentielles lourdes et plusieurs cœurs "Efficacité" pour maximiser le parallélisme.
+
+\textbf{Q13. } D'après nos simulations, la configuration CMP avec deux cœurs Cortex-A7 (arm\_detailed) atteint un IPC d'environ \textbf{0.38} par cœur. Bien que cette valeur soit inférieure à celle d'un processeur Out-of-Order comme le A15, l'efficacité globale pour la multiplication de matrices est supérieure en termes de débit (throughput). 
+
+En comparant avec le TP4, nous observons que les configurations ne sont pas strictement équivalentes en raison de l'hétérogénéité du matériel utilisé : les mesures du TP4 ont été effectuées sur une \textbf{machine locale (Intel i7-8750H)}, tandis que le TP5 a été exécuté sur le \textbf{serveur de l'école (Xeon E5-2640 v2)}. Cette différence de plateforme, notamment au niveau de la bande passante mémoire et de la gestion des caches, influe sur les résultats. 
+
+Le compromis optimal reste une architecture hétérogène (type \textit{big.LITTLE}) : un cœur "Performance" pour les tâches séquentielles lourdes (comme \textbf{Dijkstra} qui nécessite de masquer les latences) et plusieurs cœurs "Efficacité" pour maximiser le parallélisme de calcul dans des tâches comme \textbf{MatMul}.
