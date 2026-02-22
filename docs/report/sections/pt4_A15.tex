@@ -1,4 +1,5 @@
-\section{Architecture multicoeurs avec des processeurs superscalaires out-of-order (Cortex A15)}
+\section{Architecture multicoeurs avec des processeurs superscalaires 
+out-of-order (Cortex A15 - Q9-11)}
 \raggedbottom
 
 \subsection{Stratégie adoptée pour traiter la Q9}
@@ -202,7 +203,7 @@ et écrit les résultats dans :
 Le maximum global observé est \(\mathbf{IPC=23.301}\), obtenu pour \texttt{width=8} et 
 \texttt{threads=32}.
 
-\subsection{Analyse de Résultats}
+\subsection{Q12. Analyse de Résultats}
 
 \paragraph{Limites d'exécution en gem5 (SE) : nombre de threads et stabilité}
 Nous avions prévu d'explorer jusqu'à 64 threads, mais en pratique une limite nette de stabilité est apparue avec gem5-stable (mode SE) : au-delà d'un certain niveau de concurrence (dès \texttt{threads=40} dans nos essais), gem5 termine en \texttt{SIGSEGV} (\texttt{exit=139}), parfois \emph{après} que le benchmark ait affiché \texttt{Done} (le calcul applicatif est fini, mais la simulation n'est pas finalisée correctement). Cette limite est attribuée à une instabilité du simulateur plutôt qu'à un bug fonctionnel de \texttt{test\_omp} (voir le diagnostic expérimental dans \texttt{docs/report/sections/A15\_boundary.md}).
